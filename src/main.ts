@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { LabeledCube } from './cube';
+import {VRButton} from 'three/examples/jsm/webxr/VRButton.js';
+import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
+import {LabeledCube} from './cube';
+import {isWebXrAvailable} from "./browser-support.ts";
 
 async function init() {
     // Labels laden
@@ -19,6 +20,7 @@ async function init() {
 
     // Würfel erzeugen
     const cube = new LabeledCube(data.faces).mesh;
+    cube.position.z = -2; // 2 Meter vor dir platzieren
     scene.add(cube);
 
     // Licht
@@ -34,18 +36,34 @@ async function init() {
     });
 
     // Prüfen ob WebXR verfügbar ist
-    if (navigator.xr && await navigator.xr.isSessionSupported('immersive-vr')) {
+    if (await isWebXrAvailable()) {
         // VR aktivieren
         renderer.xr.enabled = true;
         document.body.appendChild(VRButton.createButton(renderer));
 
+        const controller = renderer.xr.getController(0);
+        scene.add(controller);
+
         renderer.setAnimationLoop(() => {
-            cube.rotation.x += 0.005;
-            cube.rotation.y += 0.01;
+            // Optional: Controller-Input
+            const session = renderer.xr.getSession();
+            if (session) {
+                for (const source of session.inputSources) {
+                    const gp = source.gamepad;
+                    if (gp && gp.axes.length >= 2) {
+                        const [x, y] = gp.axes;
+                        cube.rotation.y += x * 0.02;   // Joystick links/rechts = drehen
+                        cube.position.z += y * 0.05;   // Joystick hoch/runter = zoom
+                    }
+                }
+            }
+
+            // Sehr langsame Eigenrotation
+            cube.rotation.y += 0.001;
+
             renderer.render(scene, camera);
         });
     } else {
-        console.log("WebXR nicht unterstützt, nutze OrbitControls.");
         // Fallback: OrbitControls
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
@@ -53,7 +71,7 @@ async function init() {
         function animate() {
             requestAnimationFrame(animate);
             cube.rotation.x += 0.005;
-            cube.rotation.y += 0.01;
+            cube.rotation.y += 0.001;
             controls.update();
             renderer.render(scene, camera);
         }
