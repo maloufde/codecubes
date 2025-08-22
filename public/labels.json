@@ -1,0 +1,10 @@
+{
+  "faces": [
+    "UI Layer",
+    "Business Logic",
+    "Persistence",
+    "Integration",
+    "Security",
+    "Operations"
+  ]
+}
